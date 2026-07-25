@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 222 22% 11%;
+    --foreground: 210 20% 92%;
+    --card: 222 18% 14%;
+    --card-foreground: 210 20% 95%;
+    --popover: 222 20% 13%;
+    --popover-foreground: 210 20% 95%;
+    --primary: 205 85% 60%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 222 14% 20%;
+    --secondary-foreground: 210 20% 92%;
+    --muted: 222 14% 18%;
+    --muted-foreground: 215 14% 60%;
+    --accent: 222 14% 22%;
+    --accent-foreground: 210 20% 95%;
+    --destructive: 0 72% 52%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 222 14% 24%;
+    --input: 222 14% 22%;
+    --ring: 205 85% 60%;
+    --radius: 0.5rem;
+
+    --severity-critical: 0 72% 52%;
+    --severity-warning: 38 92% 50%;
+    --severity-info: 205 85% 60%;
+
+    --chart-1: 0 72% 52%;
+    --chart-2: 38 92% 50%;
+    --chart-3: 205 85% 60%;
+    --chart-4: 160 60% 45%;
+    --chart-5: 280 65% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+.font-mono {
+  font-family: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, "Liberation Mono", "Courier New", monospace;
+}
