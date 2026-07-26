@@ -9,6 +9,7 @@ import {
   ScanSearch,
   Sparkles,
   FileText,
+  AlertTriangle,
 } from 'lucide-react';
 import { Sidebar } from '@/components/sidebar';
 import { UploadZone } from '@/components/upload-zone';
@@ -29,6 +30,7 @@ interface ProgressState {
   total: number;
   startRow: number;
   endRow: number;
+  totalRows: number;
 }
 
 export default function Home() {
@@ -108,11 +110,13 @@ export default function Home() {
               total: event.total,
               startRow: event.startRow,
               endRow: event.endRow,
+              totalRows: event.totalRows,
             });
           } else if (event.type === 'result') {
             finalResult = {
               issues: event.issues,
               aiSummary: event.aiSummary,
+              partial: event.partial,
               meta: event.meta,
             };
           } else if (event.type === 'error') {
@@ -205,6 +209,15 @@ export default function Home() {
               </div>
 
               <SummaryCards issues={result.issues} />
+
+              {result.partial && (
+                <div className="flex items-start gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+                  <p className="text-sm text-amber-200">
+                    Some rows could not be analyzed due to rate limits — partial results shown below.
+                  </p>
+                </div>
+              )}
 
               {result.aiSummary && (
                 <Card className="border-border bg-card p-6">
@@ -320,11 +333,12 @@ function EmptyState({ onFile }: { onFile: (f: File) => void }) {
 
 function LoadingState({ progress }: { progress: ProgressState | null }) {
   const pct = progress && progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
+  const totalRows = progress?.totalRows ?? 0;
   const progressText =
     progress?.phase === 'summarizing'
       ? 'Generating AI audit summary…'
       : progress && progress.total > 1
-        ? `Analyzing rows ${progress.startRow}–${progress.endRow} of ${progress.total > 1 ? '' : ''}${progress.total}…`
+        ? `Analyzing rows ${progress.startRow}–${progress.endRow} of ${totalRows}…`
         : progress && progress.total === 1
           ? 'Analyzing wiring data…'
           : 'Preparing analysis…';

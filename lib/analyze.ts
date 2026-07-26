@@ -1,10 +1,12 @@
 import type { AuditIssue, Severity } from './types';
 
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const MODEL = 'llama-3.3-70b-versatile';
+const ANALYSIS_MODEL = 'llama-3.1-8b-instant';
+const SUMMARY_MODEL = 'llama-3.3-70b-versatile';
+const MODEL = ANALYSIS_MODEL;
 const CHUNK_SIZE = 20;
-const INTER_CHUNK_DELAY_MS = 2500;
-const RATE_LIMIT_RETRY_DELAY_MS = 8000;
+const INTER_CHUNK_DELAY_MS = 5000;
+const RATE_LIMIT_RETRY_DELAY_MS = 15000;
 
 const SYSTEM_PROMPT =
   'You are an expert industrial automation QA auditor reviewing PLC panel wiring/termination lists. Given the following termination list data, identify issues such as: duplicate terminal or address numbers, missing or blank descriptions/wire tags, inconsistent naming conventions across similar entries, and any other data quality anomalies an experienced panel engineer would flag. For each issue found, respond with a JSON array where each item has: row (the row number), severity (CRITICAL, WARNING, or INFO), issueType (short label), and explanation (one sentence). Only flag genuine issues — do not invent problems in clean data. Respond with ONLY the JSON array, nothing else.';
@@ -35,6 +37,7 @@ export interface AnalyzeProgress {
   total: number;
   startRow: number;
   endRow: number;
+  totalRows: number;
 }
 
 function getApiKey(): string {
@@ -114,7 +117,7 @@ async function callGroq(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: MODEL,
+      model: ANALYSIS_MODEL,
       temperature: 0,
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
@@ -143,7 +146,9 @@ async function callGroq(
   return content;
 }
 
-// Call Groq, retrying once if the response isn't valid JSON, and once on 429.
+// Call Groq, retrying once on 429 (after a long wait) and once on bad JSON.
+// A second 429 after the retry re-throws RateLimitError so the caller can
+// skip the chunk and continue with partial results.
 async function callGroqWithRetry(
   apiKey: string,
   userContent: string,
@@ -201,17 +206,19 @@ export interface AnalyzeOptions {
  * analyzeWiringData
  *
  * Sends parsed PLC panel wiring/termination rows to the Groq API
- * (llama-3.3-70b-versatile) for data-quality auditing. Rows are sent in
- * batches of CHUNK_SIZE with a delay between calls to respect Groq's
- * per-minute rate limits. A 429 response triggers a longer wait and retry.
+ * (llama-3.1-8b-instant) for data-quality auditing. Rows are sent in
+ * batches of CHUNK_SIZE with a 5-second delay between calls to respect
+ * Groq's per-minute rate limits. A 429 response triggers a 15-second wait
+ * and a single retry; if the retry also rate-limits, that chunk is skipped
+ * and the audit continues with partial results.
  */
 export async function analyzeWiringData(
   headers: string[],
   rows: string[][],
   headerRowNumber: number,
   options: AnalyzeOptions = {}
-): Promise<{ issues: AuditIssue[]; chunked: boolean }> {
-  if (rows.length === 0) return { issues: [], chunked: false };
+): Promise<{ issues: AuditIssue[]; chunked: boolean; partial: boolean }> {
+  if (rows.length === 0) return { issues: [], chunked: false, partial: false };
 
   const apiKey = getApiKey();
   const { signal, onProgress } = options;
@@ -223,6 +230,7 @@ export async function analyzeWiringData(
   const chunked = chunks.length > 1;
 
   const allIssues: AuditIssue[] = [];
+  let partial = false;
   for (let c = 0; c < chunks.length; c++) {
     const chunk = chunks[c];
     const startIndex = c * CHUNK_SIZE;
@@ -235,11 +243,22 @@ export async function analyzeWiringData(
       total: chunks.length,
       startRow,
       endRow,
+      totalRows: rows.length,
     });
 
     const message = buildUserMessage(headers, chunk, startIndex, headerRowNumber);
-    const issues = await callGroqWithRetry(apiKey, message, signal);
-    allIssues.push(...issues);
+    try {
+      const issues = await callGroqWithRetry(apiKey, message, signal);
+      allIssues.push(...issues);
+    } catch (err) {
+      if (err instanceof RateLimitError) {
+        partial = true;
+      } else if ((err as Error).name === 'AbortError') {
+        throw err;
+      } else {
+        throw err;
+      }
+    }
 
     onProgress?.({
       phase: 'analyzing',
@@ -247,6 +266,7 @@ export async function analyzeWiringData(
       total: chunks.length,
       startRow,
       endRow,
+      totalRows: rows.length,
     });
 
     if (c < chunks.length - 1) {
@@ -263,7 +283,7 @@ export async function analyzeWiringData(
     return true;
   });
 
-  return { issues: deduped, chunked };
+  return { issues: deduped, chunked, partial };
 }
 
 /**
@@ -316,7 +336,7 @@ async function callGroqRaw(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: MODEL,
+      model: SUMMARY_MODEL,
       temperature: 0.3,
       messages: [
         { role: 'system', content: systemPrompt },

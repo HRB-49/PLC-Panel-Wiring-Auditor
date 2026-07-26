@@ -20,6 +20,7 @@ export interface ParsedCsv {
 export interface AnalyzeResponse {
   issues: AuditIssue[];
   aiSummary: string;
+ partial: boolean;
   meta: {
     rowsAnalyzed: number;
     analyzedAt: string;
@@ -34,4 +35,5 @@ export interface AnalyzeProgressEvent {
   total: number;
   startRow: number;
   endRow: number;
+  totalRows: number;
 }

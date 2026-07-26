@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
     const stream = new ReadableStream({
       async start(controller) {
         try {
-          const { issues, chunked } = await analyzeWiringData(
+          const { issues, chunked, partial } = await analyzeWiringData(
             parsed.headers,
             parsed.rows,
             parsed.headerRowNumber,
@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
           );
 
           controller.enqueue(
-            encoder.encode(encode({ type: 'progress', phase: 'summarizing', done: 0, total: 1, startRow: 0, endRow: 0 }))
+            encoder.encode(encode({ type: 'progress', phase: 'summarizing', done: 0, total: 1, startRow: 0, endRow: 0, totalRows: parsed.rowCount }))
           );
 
           let aiSummary = '';
@@ -83,6 +83,7 @@ export async function POST(req: NextRequest) {
             type: 'result',
             issues,
             aiSummary,
+            partial,
             meta: {
               rowsAnalyzed: parsed.rowCount,
               analyzedAt: new Date().toISOString(),
