@@ -45,9 +45,9 @@ Large files are automatically split into smaller batches before being sent to th
 ## Screenshots
 ![Upload screen](./Screenshots/Upload.jpeg)
 ![Progress indicator](./Screenshots/Progress.jpeg)
-![Audit results 1](./Screenshots/Results 1.jpeg)
-![Audit results 1](./Screenshots/Results 2.jpeg)
-![Audit results 1](./Screenshots/Results 3.jpeg)
+![Audit results 1](./Screenshots/Results-1.jpeg)
+![Audit results 1](./Screenshots/Results-2.jpeg)
+![Audit results 1](./Screenshots/Results-3.jpeg)
 
 ## How to run locally
 
